@@ -1,4 +1,6 @@
 <?php
+namespace Morphodo\BeGroups\Migrate;
+
 /***************************************************************
  *  Copyright notice
  *
@@ -23,15 +25,17 @@
  *  This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
 
+use TYPO3\CMS\Core\Utility\GeneralUtility;
+
 /**
  * This class controls the visibility of available fields from be_groups records.
  *
  * @link http://www.morphodo.com/
  * @author Michael Klapper <michael.klapper@morphodo.com>
  */
-class Tx_BeGroups_Migrate_UserExperience {
+class UserExperience {
 
-	static $ACCESS_TYPE_MAPPING = array (
+	static $ACCESS_TYPE_MAPPING = [
 			1 => 'subgroup_r',
 			2 => 'subgroup_l',
 			4 => 'subgroup_pa',
@@ -39,7 +43,7 @@ class Tx_BeGroups_Migrate_UserExperience {
 			6 => 'subgroup_pm',
 			7 => 'subgroup_ts',
 			8 => 'subgroup_ws',
-		);
+	];
 
 	/**
 	 * Display the wizard form to choose a migration process to the new
@@ -48,9 +52,9 @@ class Tx_BeGroups_Migrate_UserExperience {
 	 * @return string
 	 */
 	public function wizardForm() {
-		$step = t3lib_div::_GP('step') ? t3lib_div::_GP('step') : FALSE;
-		$hideInListWizardStep = t3lib_div::_GP('hideInListWizardStep') ? TRUE : FALSE;
-		$subGroupWizardStep = t3lib_div::_GP('subGroupWizardStep') ? TRUE : FALSE;
+		$step = GeneralUtility::_GP('step') ? GeneralUtility::_GP('step') : FALSE;
+		$hideInListWizardStep = GeneralUtility::_GP('hideInListWizardStep') ? TRUE : FALSE;
+		$subGroupWizardStep = GeneralUtility::_GP('subGroupWizardStep') ? TRUE : FALSE;
 		$content = '';
 		$formPanel = '<form method="POST">%s</form>';
 		$controls = '<input type="hidden" name="step" value="1" />';
@@ -94,7 +98,7 @@ class Tx_BeGroups_Migrate_UserExperience {
 	 * @return void
 	 */
 	protected function setHideInListFlag() {
-		$GLOBALS['TYPO3_DB']->exec_UPDATEquery('be_groups', 'tx_begroups_kind NOT IN(0,3) AND deleted = 0', array('hide_in_lists' => 1));
+		$GLOBALS['TYPO3_DB']->exec_UPDATEquery('be_groups', 'tx_begroups_kind NOT IN(0,3) AND deleted = 0', ['hide_in_lists' => 1]);
 	}
 
 	/**
@@ -128,15 +132,15 @@ class Tx_BeGroups_Migrate_UserExperience {
 	 * 7 = tsconfig
 	 * 8 = workspace
 	 *
-	 * @return void
+	 * @return array
 	 */
 	public function subGroupWizard() {
-		$updatedRecords = array();
+		$updatedRecords = [];
 			// select all relevant records to update
 		$groupRows = $GLOBALS['TYPO3_DB']->exec_SELECTgetRows('uid,title,subgroup,tx_begroups_kind', 'be_groups', 'subgroup != \'\' AND deleted = 0');
 
 		foreach ($groupRows as $group) {
-			$subGroupRecordValues = array();
+			$subGroupRecordValues = [];
 			$subGroupRecordValues = $this->getSubGroupValueArray($group['subgroup'], $subGroupRecordValues);
 
 			if (!is_array($subGroupRecordValues)) {
@@ -145,14 +149,14 @@ class Tx_BeGroups_Migrate_UserExperience {
 
 				// final cleanup
 			foreach ($subGroupRecordValues as $index => $value) {
-				$subGroupRecordValues[$index] = t3lib_div::uniqueList($value);
+				$subGroupRecordValues[$index] = GeneralUtility::uniqueList($value);
 			}
 
 			$GLOBALS['TYPO3_DB']->exec_UPDATEquery('be_groups', 'uid=' . $group['uid'], $subGroupRecordValues);
-			$updatedRecords[] = array(
+			$updatedRecords[] = [
 				'uid' => $group['uid'],
 				'title' => $group['title'],
-			);
+			];
 		}
 
 		return $updatedRecords;
@@ -193,7 +197,7 @@ class Tx_BeGroups_Migrate_UserExperience {
 			$subGroupRecordValues[$index] = rtrim($value, ',') . ',';
 			$subGroupRecordValues['subgroup'] .= $value . ',';
 		}
-		$subGroupRecordValues['subgroup'] = t3lib_div::uniqueList($subGroupRecordValues['subgroup']) . ',';
+		$subGroupRecordValues['subgroup'] = GeneralUtility::uniqueList($subGroupRecordValues['subgroup']) . ',';
 
 		return $subGroupRecordValues;
 	}

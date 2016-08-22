@@ -37,9 +37,8 @@ class ext_update {
 	 * @return	string		HTML
 	 */
 	public function main() {
-
-		/* @var $userExperience Tx_BeGroups_Migrate_UserExperience */
-		$userExperience = t3lib_div::makeInstance('Tx_BeGroups_Migrate_UserExperience');
+		/* @var \Morphodo\BeGroups\Migrate\UserExperience $userExperience */
+		$userExperience = \TYPO3\CMS\Core\Utility\GeneralUtility::makeInstance('Morphodo\\BeGroups\\Migrate\\UserExperience');
 		return $userExperience->wizardForm();
 	}
 

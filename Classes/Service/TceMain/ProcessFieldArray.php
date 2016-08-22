@@ -1,4 +1,6 @@
 <?php
+namespace Morphodo\BeGroups\Service\TceMain;
+
 /***************************************************************
  *  Copyright notice
  *
@@ -23,28 +25,36 @@
  *  This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
 
+use Morphodo\BeGroups\Migrate\UserExperience;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
+use TYPO3\CMS\Core\DataHandling\DataHandler;
+use TYPO3\CMS\Core\Messaging\FlashMessage;
+use TYPO3\CMS\Core\Messaging\FlashMessageQueue;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Utility\MathUtility;
+
 /**
  * This class controls the visibility of available fields from be_groups records.
  *
  * @link http://www.morphodo.com/
  * @author Michael Klapper <michael.klapper@morphodo.com>
  */
-class Tx_BeGroups_Service_TceMain_ProcessFieldArray {
+class ProcessFieldArray {
 
 	/**
 	 * @var array
 	 */
-	private $setIncludeListFlag = array (
-		0 => null,
-		1 => true,
-		2 => true,
-		3 => false,
-		4 => false,
-		5 => false,
-		6 => false,
-		7 => false,
-		8 => false,
-	);
+	private $setIncludeListFlag = [
+		0 => NULL,
+		1 => TRUE,
+		2 => TRUE,
+		3 => FALSE,
+		4 => FALSE,
+		5 => FALSE,
+		6 => FALSE,
+		7 => FALSE,
+		8 => FALSE,
+	];
 
 	/**
 	 * Update inc_access_lists value if the table is "be_groups"
@@ -52,48 +62,47 @@ class Tx_BeGroups_Service_TceMain_ProcessFieldArray {
 	 * @param array $incomingFieldArray Current record
 	 * @param string $table Database table of current record
 	 * @param integer $id Uid of current record
-	 * @param t3lib_TCEmain  $parentObj
+	 * @param DataHandler $parentObj
 	 *
 	 * @return string
 	 */
-	public function processDatamap_preProcessFieldArray(&$incomingFieldArray, $table, $id, $parentObj) {
-		if ($table == 'be_groups') {
-			$recordBefore = t3lib_befunc::getRecord('be_groups', $id, 'tx_begroups_kind,subgroup');
+	public function processDatamap_preProcessFieldArray(&$incomingFieldArray, $table, $id, DataHandler $parentObj) {
+		if ($table !== 'be_groups') {
+			return;
+		}
+		$recordBefore = BackendUtility::getRecord('be_groups', $id, 'tx_begroups_kind,subgroup');
 
-			$this->resetHiddenFields($incomingFieldArray, $id);
-			if ($recordBefore['tx_begroups_kind'] !== $incomingFieldArray['tx_begroups_kind']) {
-				$this->setHideInListFlagIfTypeIsNotMeta($incomingFieldArray);
+		$this->resetHiddenFields($incomingFieldArray, $id);
+		if ($recordBefore['tx_begroups_kind'] !== $incomingFieldArray['tx_begroups_kind']) {
+			$this->setHideInListFlagIfTypeIsNotMeta($incomingFieldArray);
+		}
+		$this->setIncludeAccessListFlag($incomingFieldArray);
+
+		// change type from "default" to "meta"
+		if ($recordBefore['tx_begroups_kind'] === "0" && $incomingFieldArray['tx_begroups_kind'] === "3") {
+			$subGroupRecordValues = [];
+			if (is_null($incomingFieldArray['subgroup'])) {
+				unset($incomingFieldArray['subgroup']);
+				$subGroupIdList = $recordBefore['subgroup'];
+			} else {
+				$subGroupIdList = $this->getIdListFromArray($incomingFieldArray['subgroup']);
 			}
-			$this->setIncludeAccessListFlag($incomingFieldArray);
+			if ($subGroupIdList != '') {
+				/* @var UserExperience $userExperience */
+				$userExperience = GeneralUtility::makeInstance('Morphodo\\BeGroups\\Migrate\\UserExperience');
+				$subGroupRecordValues = $userExperience->getSubGroupValueArray($subGroupIdList, $subGroupRecordValues);
 
-				// change type from "default" to "meta"
-			if ($recordBefore['tx_begroups_kind'] === "0" && $incomingFieldArray['tx_begroups_kind'] === "3") {
-				$subGroupRecordValues = array();
-				if (is_null($incomingFieldArray['subgroup'])) {
-					unset($incomingFieldArray['subgroup']);
-					$subGroupIdList = $recordBefore['subgroup'];
-				} else {
-					$subGroupIdList = $this->getIdListFromArray($incomingFieldArray['subgroup']);
-				}
-				if ($subGroupIdList != '') {
-					/* @var $userExperience Tx_BeGroups_Migrate_UserExperience */
-					$userExperience = t3lib_div::makeInstance('Tx_BeGroups_Migrate_UserExperience');
-					$subGroupRecordValues = $userExperience->getSubGroupValueArray($subGroupIdList, $subGroupRecordValues);
-
-					// final cleanup
-					foreach (Tx_BeGroups_Migrate_UserExperience::$ACCESS_TYPE_MAPPING as $index ) {
-						if (array_key_exists($index, $subGroupRecordValues)) {
-							$incomingFieldArray[$index] = explode(',', t3lib_div::uniqueList($subGroupRecordValues[$index]));
-						} else {
-							$incomingFieldArray[$index] = NULL;
-						}
+				// final cleanup
+				foreach (UserExperience::$ACCESS_TYPE_MAPPING as $index ) {
+					if (array_key_exists($index, $subGroupRecordValues)) {
+						$incomingFieldArray[$index] = explode(',', GeneralUtility::uniqueList($subGroupRecordValues[$index]));
+					} else {
+						$incomingFieldArray[$index] = NULL;
 					}
 				}
-
-			} elseif ($recordBefore['tx_begroups_kind'] === "3" && $incomingFieldArray['tx_begroups_kind'] === "3") {
-				$this->mergeSubgroups($incomingFieldArray);
 			}
-
+		} elseif ($recordBefore['tx_begroups_kind'] === "3" && $incomingFieldArray['tx_begroups_kind'] === "3") {
+			$this->mergeSubgroups($incomingFieldArray);
 		}
 	}
 
@@ -123,13 +132,13 @@ class Tx_BeGroups_Service_TceMain_ProcessFieldArray {
 	 * @return void
 	 */
 	protected function mergeSubgroups(&$incomingFieldArray) {
-		$selectedList = array();
-		$subgroupList = array();
-		$fieldListToMerge = array('subgroup_fm', 'subgroup_pm', 'subgroup_ws', 'subgroup_r', 'subgroup_pa', 'subgroup_ts', 'subgroup_l');
+		$selectedList = [];
+		$subgroupList = [];
+		$fieldListToMerge = ['subgroup_fm', 'subgroup_pm', 'subgroup_ws', 'subgroup_r', 'subgroup_pa', 'subgroup_ts', 'subgroup_l'];
 
 		foreach ($fieldListToMerge as $fieldName) {
 			if (is_array($incomingFieldArray[$fieldName])) {
-				$selectedList = t3lib_div::array_merge($selectedList, array_flip($incomingFieldArray[$fieldName]));
+				$selectedList = GeneralUtility::array_merge($selectedList, array_flip($incomingFieldArray[$fieldName]));
 			}
 		}
 
@@ -151,11 +160,11 @@ class Tx_BeGroups_Service_TceMain_ProcessFieldArray {
 	protected function resetHiddenFields(&$incomingFieldArray, $id) {
 
 		if (! is_null($this->setIncludeListFlag[$incomingFieldArray['tx_begroups_kind']]) ) {
-			$fieldsToKeepArray = array_keys(t3lib_beFunc::getTCAtypes('be_groups', $incomingFieldArray, 1));
+			$fieldsToKeepArray = array_keys(BackendUtility::getTCAtypes('be_groups', $incomingFieldArray, 1));
 
 			foreach ($incomingFieldArray as $column => $value) {
-				if (! in_array($column, $fieldsToKeepArray) && (t3lib_utility_Math::canBeInterpretedAsInteger($id) === true) ) {
-					$incomingFieldArray[$column] = null;
+				if (! in_array($column, $fieldsToKeepArray) && (MathUtility::canBeInterpretedAsInteger($id) === TRUE) ) {
+					$incomingFieldArray[$column] = NULL;
 				}
 			}
 		}
@@ -170,9 +179,9 @@ class Tx_BeGroups_Service_TceMain_ProcessFieldArray {
 	 */
 	protected function setIncludeAccessListFlag(&$incomingFieldArray) {
 			// update include access list flag
-		if ($this->setIncludeListFlag[$incomingFieldArray['tx_begroups_kind']] === true) {
+		if ($this->setIncludeListFlag[$incomingFieldArray['tx_begroups_kind']] === TRUE) {
 			$incomingFieldArray['inc_access_lists'] = 1;
-		} elseif ($this->setIncludeListFlag[$incomingFieldArray['tx_begroups_kind']] === false) {
+		} elseif ($this->setIncludeListFlag[$incomingFieldArray['tx_begroups_kind']] === FALSE) {
 			$incomingFieldArray['inc_access_lists'] = 0;
 		}
 	}
@@ -203,12 +212,13 @@ class Tx_BeGroups_Service_TceMain_ProcessFieldArray {
 	 * @return void
 	 */
 	private function addFlashMessageNotice($title, $message) {
-		$flashMessage = t3lib_div::makeInstance('t3lib_FlashMessage',
+		$flashMessage = GeneralUtility::makeInstance(
+			'TYPO3\\CMS\\Core\\Messaging\\FlashMessage',
 			htmlspecialchars($title),
 			htmlspecialchars($message),
-			t3lib_FlashMessage::INFO,
+			FlashMessage::INFO,
 			TRUE
 		);
-		t3lib_FlashMessageQueue::addMessage($flashMessage);
+		FlashMessageQueue::addMessage($flashMessage);
 	}
 }

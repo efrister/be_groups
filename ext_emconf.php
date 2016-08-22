@@ -23,7 +23,7 @@
  *  This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
 
-$EM_CONF[$_EXTKEY] = array(
+$EM_CONF[$_EXTKEY] = [
 	'title' => 'Improved backend groups management interface.',
 	'description' => 'This extension provide several new options to restructure large amount of be_groups records.',
 	'category' => 'misc',
@@ -42,17 +42,18 @@ $EM_CONF[$_EXTKEY] = array(
 	'clearCacheOnLoad' => 1,
 	'lockType' => '',
 	'author_company' => '',
-	'version' => '1.2.1',
-	'constraints' => array(
-		'depends' => array(
-			'cms' => '',
-		),
-		'conflicts' => array(
-		),
-		'suggests' => array(
-		),
-	),
+	'version' => '2.0.0',
+	'constraints' => [
+		'depends' => [
+			'php' => '5.4-0.0.0',
+			'typo3' => '6.2.0-6.2.99',
+		],
+		'conflicts' => [
+		],
+		'suggests' => [
+		],
+	],
 	'_md5_values_when_last_written' => '',
-	'suggests' => array(
-	),
-);
+	'suggests' => [
+	],
+];
